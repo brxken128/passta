@@ -23,6 +23,7 @@ use adafruit_trinkey_qt2040::hal::Timer;
 // The macro for marking our interrupt functions
 use adafruit_trinkey_qt2040::hal::pac::interrupt;
 
+use embedded_hal::digital::v2::InputPin;
 // Ensure we halt the program on panic (if we don't mention this crate it won't
 // be linked)
 use panic_halt as _;
@@ -59,6 +60,10 @@ static mut USB_BUS: Option<UsbBusAllocator<hal::usb::UsbBus>> = None;
 /// The USB Human Interface Device Driver (shared with the interrupt).
 static mut USB_HID: Option<HIDClass<hal::usb::UsbBus>> = None;
 
+#[link_section = ".boot2"]
+#[used]
+pub static BOOT2: [u8; 256] = rp2040_boot2::BOOT_LOADER_RAM_MEMCPY;
+
 /// Entry point to our bare-metal application.
 ///
 /// The `#[entry]` macro ensures the Cortex-M start-up code calls this function
@@ -94,6 +99,13 @@ fn main() -> ! {
         pac.IO_BANK0,
         pac.PADS_BANK0,
         sio.gpio_bank0,
+        &mut pac.RESETS,
+    );
+
+    let qspi_pins = adafruit_trinkey_qt2040::hal::gpio::qspi::Pins::new(
+        pac.IO_QSPI,
+        pac.PADS_QSPI,
+        sio.gpio_qspi,
         &mut pac.RESETS,
     );
 
@@ -152,7 +164,11 @@ fn main() -> ! {
     let core = pac::CorePeripherals::take().unwrap();
     let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().to_Hz());
 
+    let bootsel = qspi_pins.cs.into_pull_up_input();
+
     delay.delay_ms(1000);
+
+    ws.write(brightness(once(blue()), 32)).unwrap();
 
     // Move the cursor up and down every 200ms
     loop {
@@ -173,6 +189,7 @@ fn main() -> ! {
 
         keyboard_push(rep).ok().unwrap_or(0);*/
 
+        /*
         ws.write(brightness(once(blue()), 32)).unwrap();
 
         delay.delay_ms(500);
@@ -180,6 +197,14 @@ fn main() -> ! {
         ws.write(brightness(once(off()), 0)).unwrap();
 
         delay.delay_ms(500);
+        */
+        if bootsel.is_low().unwrap() {
+            ws.write(brightness(once(off()), 0)).unwrap();
+            delay.delay_ms(500);
+        } else {
+            ws.write(brightness(once(blue()), 32)).unwrap();
+            delay.delay_ms(500);
+        }
     }
 }
 

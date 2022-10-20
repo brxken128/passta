@@ -4,12 +4,12 @@ name = "rp2040-project-template"
 version = "0.1.0"
 
 [dependencies]
-cortex-m = "0.7"
-cortex-m-rt = "0.7"
-embedded-hal = { version = "0.2.5", features = ["unproven"] }
+cortex-m = "0.7.6"
+cortex-m-rt = "0.7.1"
+embedded-hal = { version = "0.2.7", features = ["unproven"] }
 
 defmt = "0.3"
-defmt-rtt = "0.3"
+defmt-rtt = "0.4.0"
 panic-probe = { version = "0.3", features = ["print-defmt"] }
 
 # We're using a Pico by default on this template
@@ -18,10 +18,12 @@ adafruit-trinkey-qt2040 = "0.3.0"
 usbd-hid = "0.6.1"
 panic-halt = "0.2.0"
 usb-device = "0.2.9"
-critical-section = "1.0.0"
+critical-section = "1.1.1"
 
 ws2812-pio = "0.4.0"
 smart-leds = "0.3.0"
+
+rp2040-boot2 = "0.2.1"
 
 
 # but you can use any BSP. Uncomment this to use the pro_micro_rp2040 BSP instead
