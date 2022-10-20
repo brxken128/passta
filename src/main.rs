@@ -73,6 +73,11 @@ pub static BOOT2: [u8; 256] = rp2040_boot2::BOOT_LOADER_RAM_MEMCPY;
 /// updates periodically.
 #[entry]
 fn main() -> ! {
+    unsafe {
+        // Release spinlocks since they are not freed on soft reset
+        hal::sio::spinlock_reset();
+    }
+
     // Grab our singleton objects
     let mut pac = pac::Peripherals::take().unwrap();
 
@@ -164,11 +169,11 @@ fn main() -> ! {
     let core = pac::CorePeripherals::take().unwrap();
     let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().to_Hz());
 
-    let bootsel = qspi_pins.cs.into_pull_up_input();
-
     delay.delay_ms(1000);
 
     ws.write(brightness(once(blue()), 32)).unwrap();
+
+    //let bootsel = qspi_pins.cs.into_pull_up_input();
 
     // Move the cursor up and down every 200ms
     loop {
@@ -198,7 +203,8 @@ fn main() -> ! {
 
         delay.delay_ms(500);
         */
-        if bootsel.is_low().unwrap() {
+        //if bootsel.is_low().unwrap() {
+        if false {
             ws.write(brightness(once(off()), 0)).unwrap();
             delay.delay_ms(500);
         } else {

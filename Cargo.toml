@@ -8,7 +8,7 @@ cortex-m = "0.7.6"
 cortex-m-rt = "0.7.1"
 embedded-hal = { version = "0.2.7", features = ["unproven"] }
 
-adafruit-trinkey-qt2040 = "0.3.0"
+adafruit-trinkey-qt2040 = { version = "0.3.0", default-features = false, features = ["rt"] }
 
 usbd-hid = "0.6.1"
 panic-halt = "0.2.0"
