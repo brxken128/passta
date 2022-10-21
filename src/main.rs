@@ -173,7 +173,7 @@ fn main() -> ! {
 
     ws.write(brightness(once(blue()), 32)).unwrap();
 
-    //let bootsel = qspi_pins.cs.into_pull_up_input();
+    let bootsel = qspi_pins.cs.into_pull_up_input();
 
     // Move the cursor up and down every 200ms
     loop {
@@ -203,8 +203,8 @@ fn main() -> ! {
 
         delay.delay_ms(500);
         */
-        //if bootsel.is_low().unwrap() {
-        if false {
+        if bootsel.is_low().unwrap() {
+        //if false {
             ws.write(brightness(once(off()), 0)).unwrap();
             delay.delay_ms(500);
         } else {
