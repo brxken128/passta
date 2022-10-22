@@ -24,7 +24,7 @@ fn keyboard_push(report: KeyboardReport) -> Result<usize, usb_device::UsbError> 
 // keep track of the last char to reduce amount of blank reports sent
 // this lets us type strings faster
 // not too sure how much of a perf impact Option has here (it's probably negligible)
-pub fn keyboard_write(text: &str, delay: &mut Delay) -> Result<(), usb_device::UsbError> {
+pub fn keyboard_print(text: &str, delay: &mut Delay) -> Result<(), usb_device::UsbError> {
     let mut last_char: Option<char> = None;
     for c in text.chars() {
         let modifier = get_modifier(c);
@@ -68,7 +68,7 @@ pub fn keyboard_write(text: &str, delay: &mut Delay) -> Result<(), usb_device::U
 }
 
 pub fn keyboard_println(text: &str, delay: &mut Delay) -> Result<(), usb_device::UsbError> {
-    keyboard_write(text, delay)?;
+    keyboard_print(text, delay)?;
 
     // we need this delay as `keyboard_write()` does not include an ending one
     delay.delay_ms(35);
