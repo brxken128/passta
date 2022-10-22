@@ -6,7 +6,6 @@
 
 #![no_std]
 #![no_main]
-
 #![warn(clippy::pedantic)]
 #![warn(clippy::correctness)]
 #![warn(clippy::perf)]
