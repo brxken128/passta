@@ -1,15 +1,8 @@
-//! # Pico USB 'Twitchy' Mouse Example
-//!
-//! Creates a USB HID Class Pointing device (i.e. a virtual mouse) on a Pico
-//! board, with the USB driver running in the main thread.
-//!
-//! It generates movement reports which will twitch the cursor up and down by a
-//! few pixels, several times a second.
-//!
-//! See the `Cargo.toml` file for Copyright and license details.
-//!
-//! This is a port of
-//! https://github.com/atsamd-rs/atsamd/blob/master/boards/itsybitsy_m0/examples/twitching_usb_mouse.rs
+//! # PassPico
+//! 
+//! This is a simple program to turn an Adafruit Trinkey QT2040 into a password entry device.
+//! 
+//! The tool runs completely from memory, so we're able to get the status of the BOOTSEL button. The BOOTSEL button is used as almost every RP2040 board contains one.
 
 #![no_std]
 #![no_main]
@@ -18,80 +11,44 @@ pub mod codes;
 
 use core::iter::once;
 
-// The macro for our start-up function
 use adafruit_trinkey_qt2040::entry;
-
 use adafruit_trinkey_qt2040::hal::Timer;
-// The macro for marking our interrupt functions
 use adafruit_trinkey_qt2040::hal::pac::interrupt;
-
 use cortex_m::delay::Delay;
 use embedded_hal::digital::v2::InputPin;
-// Ensure we halt the program on panic (if we don't mention this crate it won't
-// be linked)
 use panic_halt as _;
-
-// Pull in any important traits
 use adafruit_trinkey_qt2040::hal::prelude::*;
-
-// A shorter alias for the Peripheral Access Crate, which provides low-level
-// register access
 use adafruit_trinkey_qt2040::hal::pac;
-
-// A shorter alias for the Hardware Abstraction Layer, which provides
-// higher-level drivers.
 use adafruit_trinkey_qt2040::hal;
-
 use smart_leds::brightness;
 use smart_leds::SmartLedsWrite;
 use smart_leds::RGB8;
-// USB Device support
 use usb_device::{class_prelude::*, prelude::*};
-
 use usbd_hid::descriptor::KeyboardReport;
-// USB Human Interface Device (HID) Class support
 use usbd_hid::descriptor::generator_prelude::*;
 use usbd_hid::hid_class::HIDClass;
 use ws2812_pio::Ws2812;
-
 use crate::codes::*;
 
-/// The USB Device Driver (shared with the interrupt).
 static mut USB_DEVICE: Option<UsbDevice<hal::usb::UsbBus>> = None;
-
-/// The USB Bus Driver (shared with the interrupt).
 static mut USB_BUS: Option<UsbBusAllocator<hal::usb::UsbBus>> = None;
-
-/// The USB Human Interface Device Driver (shared with the interrupt).
 static mut USB_HID: Option<HIDClass<hal::usb::UsbBus>> = None;
 
+// configure to load program from flash, and run entirely from memory
 #[link_section = ".boot2"]
 #[used]
 pub static BOOT2: [u8; 256] = rp2040_boot2::BOOT_LOADER_RAM_MEMCPY;
 
-/// Entry point to our bare-metal application.
-///
-/// The `#[entry]` macro ensures the Cortex-M start-up code calls this function
-/// as soon as all global variables are initialised.
-///
-/// The function configures the RP2040 peripherals, then submits cursor movement
-/// updates periodically.
 #[entry]
 fn main() -> ! {
     unsafe {
-        // Release spinlocks since they are not freed on soft reset
         hal::sio::spinlock_reset();
     }
 
-    // Grab our singleton objects
     let mut pac = pac::Peripherals::take().unwrap();
 
-    // Set up the watchdog driver - needed by the clock setup code
     let mut watchdog = hal::Watchdog::new(pac.WATCHDOG);
 
-    // Configure the clocks
-    //
-    // The default is to generate a 125 MHz system clock
     let clocks = hal::clocks::init_clocks_and_plls(
         adafruit_trinkey_qt2040::XOSC_CRYSTAL_FREQ,
         pac.XOSC,
@@ -130,7 +87,6 @@ fn main() -> ! {
         timer.count_down(),
     );
 
-    // Set up the USB driver
     let usb_bus = UsbBusAllocator::new(hal::usb::UsbBus::new(
         pac.USBCTRL_REGS,
         pac.USBCTRL_DPRAM,
@@ -139,36 +95,28 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
     unsafe {
-        // Note (safety): This is safe as interrupts haven't been started yet
         USB_BUS = Some(usb_bus);
     }
 
-    // Grab a reference to the USB Bus allocator. We are promising to the
-    // compiler not to take mutable access to this global variable whilst this
-    // reference exists!
     let bus_ref = unsafe { USB_BUS.as_ref().unwrap() };
 
-    // Set up the USB HID Class Device driver, providing Mouse Reports
     let usb_hid = HIDClass::new(bus_ref, KeyboardReport::desc(), 60);
     unsafe {
-        // Note (safety): This is safe as interrupts haven't been started yet.
         USB_HID = Some(usb_hid);
     }
 
-    // Create a USB device with a fake VID and PID
-    let usb_dev = UsbDeviceBuilder::new(bus_ref, UsbVidPid(0x16c0, 0x27da))
-        .manufacturer("brxken's lab")
-        .product("password enterer")
-        .serial_number("001")
-        .device_class(0)
+    // create a usb device
+    let usb_dev = UsbDeviceBuilder::new(bus_ref, UsbVidPid(0x0000, 0x0000))
+        .manufacturer("brxken128")
+        .product("PassPico")
+        .serial_number("0x0001")
+        .device_class(3)
         .build();
     unsafe {
-        // Note (safety): This is safe as interrupts haven't been started yet
         USB_DEVICE = Some(usb_dev);
     }
 
     unsafe {
-        // Enable the USB interrupt
         pac::NVIC::unmask(hal::pac::Interrupt::USBCTRL_IRQ);
     };
     let core = pac::CorePeripherals::take().unwrap();
@@ -204,13 +152,9 @@ fn off() -> RGB8 {
     (0, 0, 0).into()
 }
 
-/// Submit a new keyboard report to the USB stack.
-///
-/// We do this with interrupts disabled, to avoid a race hazard with the USB IRQ.
+/// This submits a new KeyboardReport to the USB stack
 fn keyboard_push(report: KeyboardReport) -> Result<usize, usb_device::UsbError> {
     critical_section::with(|_| unsafe {
-        // Now interrupts are disabled, grab the global variable and, if
-        // available, send it a HID report
         USB_HID.as_mut().map(|hid| hid.push_input(&report))
     })
     .unwrap()
@@ -225,8 +169,6 @@ const BLANK_REPORT: KeyboardReport = KeyboardReport {
     keycodes: BLANK_KEYCODES,
 };
 
-// originally returned a bool
-// think this can cover more cases though (if there are any)
 pub fn get_modifier(c: &char) -> u8 {
     if c.is_uppercase() {
         return KEY_MOD_LSHIFT;
@@ -261,8 +203,8 @@ pub fn get_modifier(c: &char) -> u8 {
 
 // keep track of the last char to reduce amount of blank reports sent
 // this lets us type strings faster
-// not too sure how much of a perf impact Option has here
-fn keyboard_writeln(text: &str, delay: &mut Delay) -> Result<(), usb_device::UsbError> {
+// not too sure how much of a perf impact Option has here (it's probably negligible)
+fn keyboard_write(text: &str, delay: &mut Delay) -> Result<(), usb_device::UsbError> {
     let mut last_char: Option<char> = None;
     for c in text.chars() {
         let modifier = get_modifier(&c);
@@ -299,8 +241,9 @@ fn keyboard_writeln(text: &str, delay: &mut Delay) -> Result<(), usb_device::Usb
 }
 
 fn keyboard_println(text: &str, delay: &mut Delay) -> Result<(), usb_device::UsbError> {
-    keyboard_writeln(text, delay)?;
+    keyboard_write(text, delay)?;
 
+    // we need this delay as `keyboard_write()` does not include an ending one
     delay.delay_ms(35);
 
     let codes = [codes::KEY_ENTER, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE];
@@ -321,49 +264,66 @@ fn keyboard_println(text: &str, delay: &mut Delay) -> Result<(), usb_device::Usb
     Ok(())
 }
 
-// currently inexhaustive
+// this converts a char to a keycode
 fn char_to_keycode(c: &char) -> u8 {
     match c {
-        'a' => KEY_A,
-        'b' => KEY_B,
-        'c' => KEY_C,
-        'd' => KEY_D,
-        'e' => KEY_E,
-        'f' => KEY_F,
-        'g' => KEY_G,
-        'h' => KEY_H,
-        'i' => KEY_I,
-        'j' => KEY_J,
-        'k' => KEY_K,
-        'l' => KEY_L,
-        'm' => KEY_M,
-        'n' => KEY_N,
-        'o' => KEY_O,
-        'p' => KEY_P,
-        'q' => KEY_Q,
-        'r' => KEY_R,
-        's' => KEY_S,
-        't' => KEY_T,
-        'u' => KEY_U,
-        'v' => KEY_V,
-        'w' => KEY_W,
-        'x' => KEY_X,
-        'y' => KEY_Y,
-        'z' => KEY_Z,
+        'a' | 'A' => KEY_A,
+        'b' | 'B' => KEY_B,
+        'c' | 'C' => KEY_C,
+        'd' | 'D' => KEY_D,
+        'e' | 'E' => KEY_E,
+        'f' | 'F' => KEY_F,
+        'g' | 'G' => KEY_G,
+        'h' | 'H' => KEY_H,
+        'i' | 'I' => KEY_I,
+        'j' | 'J' => KEY_J,
+        'k' | 'K' => KEY_K,
+        'l' | 'L' => KEY_L,
+        'm' | 'M' => KEY_M,
+        'n' | 'N' => KEY_N,
+        'o' | 'O' => KEY_O,
+        'p' | 'P' => KEY_P,
+        'q' | 'Q' => KEY_Q,
+        'r' | 'R' => KEY_R,
+        's' | 'S' => KEY_S,
+        't' | 'T' => KEY_T,
+        'u' | 'U' => KEY_U,
+        'v' | 'V' => KEY_V,
+        'w' | 'W' => KEY_W,
+        'x' | 'X' => KEY_X,
+        'y' | 'Y' => KEY_Y,
+        'z' | 'Z' => KEY_Z,
+        '1' | '!' => KEY_1,
+        '2' | '@' => KEY_2,
+        '3' | '#' => KEY_3,
+        '4' | '$' => KEY_4,
+        '5' | '%' => KEY_5,
+        '6' | '^' => KEY_6,
+        '7' | '&' => KEY_7,
+        '8' | '*' => KEY_8,
+        '9' | '(' => KEY_9,
+        '0' | ')' => KEY_0,
+        '-' | '_' => KEY_MINUS,
+        '=' | '+' => KEY_EQUAL,
+        '[' | '{' => KEY_LEFTBRACE,
+        ']' | '}' => KEY_RIGHTBRACE,
+        '\\' | '|' => KEY_BACKSLASH,
+        ';' | ':' => KEY_SEMICOLON,
+        '\'' | '"' => KEY_APOSTROPHE,
+        '`' | '~' => KEY_GRAVE,
+        ',' | '<' => KEY_COMMA,
+        '.' | '>' => KEY_DOT,
+        '/' | '?' => KEY_SLASH,
         ' ' => KEY_SPACE,
-        _ => unreachable!(),
+        _ => KEY_E,
     }
 }
 
-/// This function is called whenever the USB Hardware generates an Interrupt
-/// Request.
+// this is called whenever the USB device generates an interrupt request
 #[allow(non_snake_case)]
 #[interrupt]
 unsafe fn USBCTRL_IRQ() {
-    // Handle USB request
     let usb_dev = USB_DEVICE.as_mut().unwrap();
     let usb_hid = USB_HID.as_mut().unwrap();
     usb_dev.poll(&mut [usb_hid]);
 }
-
-// End of file
