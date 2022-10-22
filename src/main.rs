@@ -7,6 +7,18 @@
 #![no_std]
 #![no_main]
 
+#![warn(clippy::pedantic)]
+#![warn(clippy::correctness)]
+#![warn(clippy::perf)]
+#![warn(clippy::style)]
+#![warn(clippy::suspicious)]
+#![warn(clippy::nursery)]
+#![warn(clippy::correctness)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::similar_names)]
+
 pub mod codes;
 
 use core::iter::once;
@@ -160,7 +172,7 @@ fn keyboard_push(report: KeyboardReport) -> Result<usize, usb_device::UsbError> 
 const BLANK_KEYCODES: [u8; 6] = [KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE];
 
 const BLANK_REPORT: KeyboardReport = KeyboardReport {
-    modifier: 0x00,
+    modifier: KEY_MOD_NONE,
     reserved: 0x00,
     leds: 0x00,
     keycodes: BLANK_KEYCODES,
@@ -171,31 +183,11 @@ pub fn get_modifier(c: &char) -> u8 {
         return KEY_MOD_LSHIFT;
     }
 
-    // needs double checking
-    match c {
-        '!' => KEY_MOD_LSHIFT,
-        '@' => KEY_MOD_LSHIFT,
-        '#' => KEY_MOD_LSHIFT,
-        '$' => KEY_MOD_LSHIFT,
-        '%' => KEY_MOD_LSHIFT,
-        '^' => KEY_MOD_LSHIFT,
-        '&' => KEY_MOD_LSHIFT,
-        '*' => KEY_MOD_LSHIFT,
-        '(' => KEY_MOD_LSHIFT,
-        ')' => KEY_MOD_LSHIFT,
-        '_' => KEY_MOD_LSHIFT,
-        '+' => KEY_MOD_LSHIFT,
-        '{' => KEY_MOD_LSHIFT,
-        '}' => KEY_MOD_LSHIFT,
-        '|' => KEY_MOD_LSHIFT,
-        '~' => KEY_MOD_LSHIFT,
-        ':' => KEY_MOD_LSHIFT,
-        '"' => KEY_MOD_LSHIFT,
-        '<' => KEY_MOD_LSHIFT,
-        '>' => KEY_MOD_LSHIFT,
-        '?' => KEY_MOD_LSHIFT,
-        _ => 0x00,
+    if LSHIFT_CHARS.chars().any(|z| c == &z) {
+        return KEY_MOD_LSHIFT;
     }
+
+    KEY_MOD_NONE
 }
 
 // keep track of the last char to reduce amount of blank reports sent
@@ -260,7 +252,7 @@ fn keyboard_println(text: &str, delay: &mut Delay) -> Result<(), usb_device::Usb
     ];
 
     let report = KeyboardReport {
-        modifier: 0x00,
+        modifier: KEY_MOD_NONE,
         reserved: 0x00,
         leds: 0x00,
         keycodes: codes,

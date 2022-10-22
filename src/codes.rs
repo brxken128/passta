@@ -7,6 +7,9 @@ pub const KEY_MOD_RCTRL: u8 = 0x10;
 pub const KEY_MOD_RSHIFT: u8 = 0x20;
 pub const KEY_MOD_RALT: u8 = 0x40;
 pub const KEY_MOD_RMETA: u8 = 0x80;
+pub const KEY_MOD_NONE: u8 = 0x00;
+
+pub const LSHIFT_CHARS: &str = "!@#$%^&*()_+{}|~:\"<>?";
 
 // scan codes
 pub const KEY_NONE: u8 = 0x00;
