@@ -70,3 +70,72 @@ pub const KEY_COMMA: u8 = 0x36;
 pub const KEY_DOT: u8 = 0x37;
 pub const KEY_SLASH: u8 = 0x38;
 pub const KEY_CAPSLOCK: u8 = 0x39;
+
+// this converts a char to a keycode
+#[must_use]
+pub const fn char_to_keycode(c: char) -> u8 {
+    match c {
+        'a' | 'A' => KEY_A,
+        'b' | 'B' => KEY_B,
+        'c' | 'C' => KEY_C,
+        'd' | 'D' => KEY_D,
+        'e' | 'E' => KEY_E,
+        'f' | 'F' => KEY_F,
+        'g' | 'G' => KEY_G,
+        'h' | 'H' => KEY_H,
+        'i' | 'I' => KEY_I,
+        'j' | 'J' => KEY_J,
+        'k' | 'K' => KEY_K,
+        'l' | 'L' => KEY_L,
+        'm' | 'M' => KEY_M,
+        'n' | 'N' => KEY_N,
+        'o' | 'O' => KEY_O,
+        'p' | 'P' => KEY_P,
+        'q' | 'Q' => KEY_Q,
+        'r' | 'R' => KEY_R,
+        's' | 'S' => KEY_S,
+        't' | 'T' => KEY_T,
+        'u' | 'U' => KEY_U,
+        'v' | 'V' => KEY_V,
+        'w' | 'W' => KEY_W,
+        'x' | 'X' => KEY_X,
+        'y' | 'Y' => KEY_Y,
+        'z' | 'Z' => KEY_Z,
+        '1' | '!' => KEY_1,
+        '2' | '@' => KEY_2,
+        '3' | '#' => KEY_3,
+        '4' | '$' => KEY_4,
+        '5' | '%' => KEY_5,
+        '6' | '^' => KEY_6,
+        '7' | '&' => KEY_7,
+        '8' | '*' => KEY_8,
+        '9' | '(' => KEY_9,
+        '0' | ')' => KEY_0,
+        '-' | '_' => KEY_MINUS,
+        '=' | '+' => KEY_EQUAL,
+        '[' | '{' => KEY_LEFTBRACE,
+        ']' | '}' => KEY_RIGHTBRACE,
+        '\\' | '|' => KEY_BACKSLASH,
+        ';' | ':' => KEY_SEMICOLON,
+        '\'' | '"' => KEY_APOSTROPHE,
+        '`' | '~' => KEY_GRAVE,
+        ',' | '<' => KEY_COMMA,
+        '.' | '>' => KEY_DOT,
+        '/' | '?' => KEY_SLASH,
+        ' ' => KEY_SPACE,
+        _ => unreachable!(),
+    }
+}
+
+#[must_use]
+pub fn get_modifier(c: char) -> u8 {
+    if c.is_uppercase() {
+        return KEY_MOD_LSHIFT;
+    }
+
+    if LSHIFT_CHARS.chars().any(|z| c == z) {
+        return KEY_MOD_LSHIFT;
+    }
+
+    KEY_MOD_NONE
+}
