@@ -14,6 +14,8 @@
 #![no_std]
 #![no_main]
 
+pub mod codes;
+
 use core::iter::once;
 
 // The macro for our start-up function
@@ -23,6 +25,8 @@ use adafruit_trinkey_qt2040::hal::Timer;
 // The macro for marking our interrupt functions
 use adafruit_trinkey_qt2040::hal::pac::interrupt;
 
+use codes::KEY_MOD_LCTRL;
+use cortex_m::delay::Delay;
 use embedded_hal::digital::v2::InputPin;
 // Ensure we halt the program on panic (if we don't mention this crate it won't
 // be linked)
@@ -50,6 +54,8 @@ use usbd_hid::descriptor::KeyboardReport;
 use usbd_hid::descriptor::generator_prelude::*;
 use usbd_hid::hid_class::HIDClass;
 use ws2812_pio::Ws2812;
+
+use crate::codes::*;
 
 /// The USB Device Driver (shared with the interrupt).
 static mut USB_DEVICE: Option<UsbDevice<hal::usb::UsbBus>> = None;
@@ -169,50 +175,27 @@ fn main() -> ! {
     let core = pac::CorePeripherals::take().unwrap();
     let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().to_Hz());
 
-    delay.delay_ms(1000);
-
     ws.write(brightness(once(blue()), 32)).unwrap();
+    delay.delay_ms(500);
+    ws.write(brightness(once(off()), 0)).unwrap();
 
     let bootsel = qspi_pins.cs.into_pull_up_input();
 
-    // Move the cursor up and down every 200ms
     loop {
-        /*let rep_up = MouseReport {
-            x: 0,
-            y: 4,
-            buttons: 0,
-            wheel: 0,
-            pan: 0,
-        };*/
-
-        /*let rep = KeyboardReport {
-            modifier: 0x06,
-            reserved: 0x00,
-            leds: 0x00,
-            keycodes: [0x55, 0x00, 0x00, 0x00, 0x00, 0x00],
-        };
-
-        keyboard_push(rep).ok().unwrap_or(0);*/
-
-        /*
-        ws.write(brightness(once(blue()), 32)).unwrap();
-
-        delay.delay_ms(500);
-
-        ws.write(brightness(once(off()), 0)).unwrap();
-
-        delay.delay_ms(500);
-        */
         if bootsel.is_low().unwrap() {
-        //if false {
-            ws.write(brightness(once(off()), 0)).unwrap();
-            delay.delay_ms(500);
-        } else {
+            keyboard_writeln("text", &mut delay).unwrap();
+
             ws.write(brightness(once(blue()), 32)).unwrap();
-            delay.delay_ms(500);
+
+            delay.delay_ms(1000);
+        } else {
+            ws.write(brightness(once(off()), 0)).unwrap();
         }
+
+        delay.delay_ms(100);
     }
 }
+
 
 fn blue() -> RGB8 {
     (26, 94, 163).into()
@@ -222,7 +205,7 @@ fn off() -> RGB8 {
     (0, 0, 0).into()
 }
 
-/// Submit a new mouse movement report to the USB stack.
+/// Submit a new keyboard report to the USB stack.
 ///
 /// We do this with interrupts disabled, to avoid a race hazard with the USB IRQ.
 fn keyboard_push(report: KeyboardReport) -> Result<usize, usb_device::UsbError> {
@@ -232,6 +215,114 @@ fn keyboard_push(report: KeyboardReport) -> Result<usize, usb_device::UsbError> 
         USB_HID.as_mut().map(|hid| hid.push_input(&report))
     })
     .unwrap()
+}
+
+const BLANK_KEYCODES: [u8; 6] = [KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE];
+
+const BLANK_REPORT: KeyboardReport = KeyboardReport {
+    modifier: 0x00,
+    reserved: 0x00,
+    leds: 0x00,
+    keycodes: BLANK_KEYCODES,
+};
+
+// keep track of the last char to reduce amount of blank reports sent
+// this lets us type strings faster
+// not too sure how much of a perf impact Option has here
+fn keyboard_writeln(text: &str, delay: &mut Delay) -> Result<(), usb_device::UsbError> {
+    let mut last_char: Option<char> = None;
+    for c in text.chars() {
+        let mut modifier = 0x00;
+        if c.is_ascii_uppercase() {
+            modifier = KEY_MOD_LSHIFT;
+        }
+
+        // if current char differs from the previous, we can send a new report instantly
+        // if they match, we need a blank report to say that it's another input of the char
+        if let Some(lc) = last_char {
+            if c == lc {
+                keyboard_push(BLANK_REPORT)?;
+
+                delay.delay_ms(35);
+            }
+        }
+
+        let codes = [char_to_keycode(&c), KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE];
+
+        let report = KeyboardReport {
+            modifier: modifier,
+            reserved: 0x00,
+            leds: 0x00,
+            keycodes: codes,
+        };
+
+        keyboard_push(report)?;
+
+        last_char = Some(c);
+
+        delay.delay_ms(35);
+    }
+
+    keyboard_push(BLANK_REPORT)?;
+
+    Ok(())
+}
+
+fn keyboard_println(text: &str, delay: &mut Delay) -> Result<(), usb_device::UsbError> {
+    keyboard_writeln(text, delay)?;
+
+    delay.delay_ms(35);
+
+    let codes = [codes::KEY_ENTER, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE];
+
+    let report = KeyboardReport {
+        modifier: 0x00,
+        reserved: 0x00,
+        leds: 0x00,
+        keycodes: codes,
+    };
+
+    keyboard_push(report)?;
+
+    delay.delay_ms(35);
+
+    keyboard_push(BLANK_REPORT)?;
+
+    Ok(())
+}
+
+// currently inexhaustive
+fn char_to_keycode(c: &char) -> u8 {
+    match c {
+        'a' => KEY_A,
+        'b' => KEY_B,
+        'c' => KEY_C,
+        'd' => KEY_D,
+        'e' => KEY_E,
+        'f' => KEY_F,
+        'g' => KEY_G,
+        'h' => KEY_H,
+        'i' => KEY_I,
+        'j' => KEY_J,
+        'k' => KEY_K,
+        'l' => KEY_L,
+        'm' => KEY_M,
+        'n' => KEY_N,
+        'o' => KEY_O,
+        'p' => KEY_P,
+        'q' => KEY_Q,
+        'r' => KEY_R,
+        's' => KEY_S,
+        't' => KEY_T,
+        'u' => KEY_U,
+        'v' => KEY_V,
+        'w' => KEY_W,
+        'x' => KEY_X,
+        'y' => KEY_Y,
+        'z' => KEY_Z,
+        ' ' => KEY_SPACE,
+        _ => unreachable!(),
+    }
 }
 
 /// This function is called whenever the USB Hardware generates an Interrupt
