@@ -1,7 +1,7 @@
 //! # PassPico
-//! 
+//!
 //! This is a simple program to turn an Adafruit Trinkey QT2040 into a password entry device.
-//! 
+//!
 //! The tool runs completely from memory, so we're able to get the status of the BOOTSEL button. The BOOTSEL button is used as almost every RP2040 board contains one.
 
 #![no_std]
@@ -11,24 +11,24 @@ pub mod codes;
 
 use core::iter::once;
 
+use crate::codes::*;
 use adafruit_trinkey_qt2040::entry;
-use adafruit_trinkey_qt2040::hal::Timer;
+use adafruit_trinkey_qt2040::hal;
+use adafruit_trinkey_qt2040::hal::pac;
 use adafruit_trinkey_qt2040::hal::pac::interrupt;
+use adafruit_trinkey_qt2040::hal::prelude::*;
+use adafruit_trinkey_qt2040::hal::Timer;
 use cortex_m::delay::Delay;
 use embedded_hal::digital::v2::InputPin;
 use panic_halt as _;
-use adafruit_trinkey_qt2040::hal::prelude::*;
-use adafruit_trinkey_qt2040::hal::pac;
-use adafruit_trinkey_qt2040::hal;
 use smart_leds::brightness;
 use smart_leds::SmartLedsWrite;
 use smart_leds::RGB8;
 use usb_device::{class_prelude::*, prelude::*};
-use usbd_hid::descriptor::KeyboardReport;
 use usbd_hid::descriptor::generator_prelude::*;
+use usbd_hid::descriptor::KeyboardReport;
 use usbd_hid::hid_class::HIDClass;
 use ws2812_pio::Ws2812;
-use crate::codes::*;
 
 static mut USB_DEVICE: Option<UsbDevice<hal::usb::UsbBus>> = None;
 static mut USB_BUS: Option<UsbBusAllocator<hal::usb::UsbBus>> = None;
@@ -143,7 +143,6 @@ fn main() -> ! {
     }
 }
 
-
 fn blue() -> RGB8 {
     (26, 94, 163).into()
 }
@@ -154,10 +153,8 @@ fn off() -> RGB8 {
 
 /// This submits a new KeyboardReport to the USB stack
 fn keyboard_push(report: KeyboardReport) -> Result<usize, usb_device::UsbError> {
-    critical_section::with(|_| unsafe {
-        USB_HID.as_mut().map(|hid| hid.push_input(&report))
-    })
-    .unwrap()
+    critical_section::with(|_| unsafe { USB_HID.as_mut().map(|hid| hid.push_input(&report)) })
+        .unwrap()
 }
 
 const BLANK_KEYCODES: [u8; 6] = [KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE];
@@ -219,10 +216,17 @@ fn keyboard_write(text: &str, delay: &mut Delay) -> Result<(), usb_device::UsbEr
             }
         }
 
-        let codes = [char_to_keycode(&c), KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE];
+        let codes = [
+            char_to_keycode(&c),
+            KEY_NONE,
+            KEY_NONE,
+            KEY_NONE,
+            KEY_NONE,
+            KEY_NONE,
+        ];
 
         let report = KeyboardReport {
-            modifier: modifier,
+            modifier,
             reserved: 0x00,
             leds: 0x00,
             keycodes: codes,
@@ -246,7 +250,14 @@ fn keyboard_println(text: &str, delay: &mut Delay) -> Result<(), usb_device::Usb
     // we need this delay as `keyboard_write()` does not include an ending one
     delay.delay_ms(35);
 
-    let codes = [codes::KEY_ENTER, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE];
+    let codes = [
+        codes::KEY_ENTER,
+        KEY_NONE,
+        KEY_NONE,
+        KEY_NONE,
+        KEY_NONE,
+        KEY_NONE,
+    ];
 
     let report = KeyboardReport {
         modifier: 0x00,
