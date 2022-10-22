@@ -25,7 +25,6 @@ use adafruit_trinkey_qt2040::hal::Timer;
 // The macro for marking our interrupt functions
 use adafruit_trinkey_qt2040::hal::pac::interrupt;
 
-use codes::KEY_MOD_LCTRL;
 use cortex_m::delay::Delay;
 use embedded_hal::digital::v2::InputPin;
 // Ensure we halt the program on panic (if we don't mention this crate it won't
@@ -183,7 +182,7 @@ fn main() -> ! {
 
     loop {
         if bootsel.is_low().unwrap() {
-            keyboard_writeln("text", &mut delay).unwrap();
+            keyboard_println("text", &mut delay).unwrap();
 
             ws.write(brightness(once(blue()), 32)).unwrap();
 
@@ -226,16 +225,47 @@ const BLANK_REPORT: KeyboardReport = KeyboardReport {
     keycodes: BLANK_KEYCODES,
 };
 
+// originally returned a bool
+// think this can cover more cases though (if there are any)
+pub fn get_modifier(c: &char) -> u8 {
+    if c.is_uppercase() {
+        return KEY_MOD_LSHIFT;
+    }
+
+    // needs double checking
+    match c {
+        '!' => KEY_MOD_LSHIFT,
+        '@' => KEY_MOD_LSHIFT,
+        '#' => KEY_MOD_LSHIFT,
+        '$' => KEY_MOD_LSHIFT,
+        '%' => KEY_MOD_LSHIFT,
+        '^' => KEY_MOD_LSHIFT,
+        '&' => KEY_MOD_LSHIFT,
+        '*' => KEY_MOD_LSHIFT,
+        '(' => KEY_MOD_LSHIFT,
+        ')' => KEY_MOD_LSHIFT,
+        '_' => KEY_MOD_LSHIFT,
+        '+' => KEY_MOD_LSHIFT,
+        '{' => KEY_MOD_LSHIFT,
+        '}' => KEY_MOD_LSHIFT,
+        '|' => KEY_MOD_LSHIFT,
+        '~' => KEY_MOD_LSHIFT,
+        ':' => KEY_MOD_LSHIFT,
+        '"' => KEY_MOD_LSHIFT,
+        '<' => KEY_MOD_LSHIFT,
+        '>' => KEY_MOD_LSHIFT,
+        '?' => KEY_MOD_LSHIFT,
+        _ => 0x00,
+    }
+}
+
 // keep track of the last char to reduce amount of blank reports sent
 // this lets us type strings faster
 // not too sure how much of a perf impact Option has here
 fn keyboard_writeln(text: &str, delay: &mut Delay) -> Result<(), usb_device::UsbError> {
     let mut last_char: Option<char> = None;
     for c in text.chars() {
-        let mut modifier = 0x00;
-        if c.is_ascii_uppercase() {
-            modifier = KEY_MOD_LSHIFT;
-        }
+        let modifier = get_modifier(&c);
 
         // if current char differs from the previous, we can send a new report instantly
         // if they match, we need a blank report to say that it's another input of the char
