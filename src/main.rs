@@ -18,23 +18,18 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::similar_names)]
 
-pub mod keycodes;
 pub mod keyboard;
+pub mod keycodes;
 
 use core::iter::once;
 
 use adafruit_trinkey_qt2040::{
     entry,
-    hal::{
-        self,
-        pac,
-        prelude::_rphal_pio_PIOExt,
-        Clock, Timer,
-    },
+    hal::{self, pac, prelude::_rphal_pio_PIOExt, Clock, Timer},
 };
 
 use embedded_hal::digital::v2::InputPin;
-use keyboard::{keyboard_println, Keyboard};
+use keyboard::Keyboard;
 use panic_halt as _;
 use smart_leds::{brightness, SmartLedsWrite, RGB8};
 use usb_device::{
@@ -135,7 +130,7 @@ fn main() -> ! {
 
     loop {
         if bootsel.is_low().unwrap() {
-            keyboard_println("text", &mut delay).unwrap();
+            Keyboard::println("text", &mut delay).unwrap();
 
             ws.write(brightness(once(blue()), 32)).unwrap();
 
