@@ -18,7 +18,7 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::similar_names)]
 
-pub mod codes;
+pub mod keycodes;
 pub mod keyboard;
 
 use core::iter::once;

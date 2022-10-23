@@ -6,7 +6,7 @@ use usb_device::{prelude::UsbDevice, class_prelude::UsbBusAllocator};
 use usbd_hid::{descriptor::KeyboardReport, hid_class::HIDClass};
 
 use crate::{
-    codes::{char_to_keycode, get_modifier, KEY_ENTER, KEY_MOD_NONE, KEY_NONE},
+    keycodes::{char_to_keycode, get_modifier, KEY_ENTER, KEY_MOD_NONE, KEY_NONE},
 };
 
 pub static mut USB_DEVICE: Option<UsbDevice<hal::usb::UsbBus>> = None;
