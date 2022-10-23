@@ -47,6 +47,14 @@ use ws2812_pio::Ws2812;
 #[used]
 pub static BOOT2: [u8; 256] = rp2040_boot2::BOOT_LOADER_RAM_MEMCPY;
 
+// these should be kept in sync with the crate version
+pub const MANUFACTURER: &str = "brxken128";
+pub const PRODUCT_NAME: &str = "PassPico v0.1.0";
+pub const SERIAL_NUMBER: &str = "0x0001";
+pub const USB_VID: u16 = 0x0000;
+pub const USB_PID: u16 = 0x000;
+pub const USB_POLL_RATE: u8 = 60;
+
 #[entry]
 fn main() -> ! {
     let mut pac = pac::Peripherals::take().unwrap();
@@ -101,18 +109,15 @@ fn main() -> ! {
 
     Keyboard::set_usb_bus(usb_bus);
 
-    let bus_ref = Keyboard::get_usb_bus_ref();
-
-    let usb_hid = HIDClass::new(bus_ref, KeyboardReport::desc(), 60);
+    let usb_hid = HIDClass::new(Keyboard::get_usb_bus_ref(), KeyboardReport::desc(), USB_POLL_RATE);
 
     Keyboard::set_hid_device(usb_hid);
 
     // create a usb device
-    let usb_dev = UsbDeviceBuilder::new(bus_ref, UsbVidPid(0x0000, 0x0000))
-        .manufacturer("brxken128")
-        // should include current version within the product
-        .product("PassPico")
-        .serial_number("0x0001")
+    let usb_dev = UsbDeviceBuilder::new(Keyboard::get_usb_bus_ref(), UsbVidPid(USB_VID, USB_PID))
+        .manufacturer(MANUFACTURER)
+        .product(PRODUCT_NAME)
+        .serial_number(SERIAL_NUMBER)
         .device_class(3)
         .build();
 
