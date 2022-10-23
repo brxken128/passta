@@ -52,7 +52,7 @@ pub const MANUFACTURER: &str = "brxken128";
 pub const PRODUCT_NAME: &str = "PassPico v0.1.0";
 pub const SERIAL_NUMBER: &str = "0x0001";
 pub const USB_VID: u16 = 0x0000;
-pub const USB_PID: u16 = 0x000;
+pub const USB_PID: u16 = 0x0000;
 pub const USB_POLL_RATE: u8 = 60;
 
 #[entry]
@@ -109,7 +109,11 @@ fn main() -> ! {
 
     Keyboard::set_usb_bus(usb_bus);
 
-    let usb_hid = HIDClass::new(Keyboard::get_usb_bus_ref(), KeyboardReport::desc(), USB_POLL_RATE);
+    let usb_hid = HIDClass::new(
+        Keyboard::get_usb_bus_ref(),
+        KeyboardReport::desc(),
+        USB_POLL_RATE,
+    );
 
     Keyboard::set_hid_device(usb_hid);
 
