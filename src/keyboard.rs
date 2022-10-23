@@ -5,7 +5,7 @@ use cortex_m::delay::Delay;
 use usb_device::{class_prelude::UsbBusAllocator, prelude::UsbDevice};
 use usbd_hid::{descriptor::KeyboardReport, hid_class::HIDClass};
 
-use crate::keycodes::{char_to_keycode, get_modifier, KEY_ENTER, KEY_MOD_NONE, KEY_NONE};
+use crate::{keycodes::{char_to_keycode, get_modifier, KEY_ENTER, KEY_MOD_NONE, KEY_NONE}, KEYBOARD_DELAY};
 
 pub static mut USB_DEVICE: Option<UsbDevice<hal::usb::UsbBus>> = None;
 pub static mut USB_BUS: Option<UsbBusAllocator<hal::usb::UsbBus>> = None;
@@ -62,7 +62,7 @@ impl Keyboard {
                 if c == lc {
                     Self::push_report(BLANK_REPORT)?;
 
-                    delay.delay_ms(35);
+                    delay.delay_ms(KEYBOARD_DELAY);
                 }
             }
 
@@ -86,7 +86,7 @@ impl Keyboard {
 
             last_char = Some(c);
 
-            delay.delay_ms(35);
+            delay.delay_ms(KEYBOARD_DELAY);
         }
 
         Self::push_report(BLANK_REPORT)?;
@@ -97,21 +97,12 @@ impl Keyboard {
     pub fn println(text: &str, delay: &mut Delay) -> Result<(), usb_device::UsbError> {
         Self::print(text, delay)?;
 
-        // we need this delay as `keyboard_write()` does not include an ending one
-        delay.delay_ms(35);
+        // we need this delay as `Self::print()` does not include an ending one
+        delay.delay_ms(KEYBOARD_DELAY);
 
-        let codes = [KEY_ENTER, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE];
+        Self::push_report(ENTER_REPORT)?;
 
-        let report = KeyboardReport {
-            modifier: KEY_MOD_NONE,
-            reserved: 0x00,
-            leds: 0x00,
-            keycodes: codes,
-        };
-
-        Self::push_report(report)?;
-
-        delay.delay_ms(35);
+        delay.delay_ms(KEYBOARD_DELAY);
 
         Self::push_report(BLANK_REPORT)?;
 
@@ -135,4 +126,13 @@ const BLANK_REPORT: KeyboardReport = KeyboardReport {
     reserved: 0x00,
     leds: 0x00,
     keycodes: BLANK_KEYCODES,
+};
+
+const ENTER_KEYCODES: [u8; 6] = [KEY_ENTER, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE];
+
+const ENTER_REPORT: KeyboardReport = KeyboardReport {
+    modifier: KEY_MOD_NONE,
+    reserved: 0x00,
+    leds: 0x00,
+    keycodes: ENTER_KEYCODES,
 };

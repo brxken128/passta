@@ -54,6 +54,9 @@ pub const SERIAL_NUMBER: &str = "0x0001";
 pub const USB_VID: u16 = 0x0000;
 pub const USB_PID: u16 = 0x0000;
 pub const USB_POLL_RATE: u8 = 60;
+pub const KEYBOARD_DELAY: u32 = 35;
+
+pub const PASSWORD_1: &str = include_str!("../passwords/1.password");
 
 #[entry]
 fn main() -> ! {
@@ -139,7 +142,7 @@ fn main() -> ! {
 
     loop {
         if bootsel.is_low().unwrap() {
-            Keyboard::println("text", &mut delay).unwrap();
+            Keyboard::println(PASSWORD_1, &mut delay).unwrap();
 
             ws.write(brightness(once(blue()), 32)).unwrap();
 
