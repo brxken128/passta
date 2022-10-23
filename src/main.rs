@@ -27,29 +27,25 @@ use adafruit_trinkey_qt2040::{
     entry,
     hal::{
         self,
-        pac::{self, interrupt},
+        pac,
         prelude::_rphal_pio_PIOExt,
         Clock, Timer,
     },
 };
 
 use embedded_hal::digital::v2::InputPin;
-use keyboard::keyboard_println;
+use keyboard::{keyboard_println, Keyboard};
 use panic_halt as _;
 use smart_leds::{brightness, SmartLedsWrite, RGB8};
 use usb_device::{
     class_prelude::UsbBusAllocator,
-    prelude::{UsbDevice, UsbDeviceBuilder, UsbVidPid},
+    prelude::{UsbDeviceBuilder, UsbVidPid},
 };
 use usbd_hid::{
     descriptor::{KeyboardReport, SerializedDescriptor},
     hid_class::HIDClass,
 };
 use ws2812_pio::Ws2812;
-
-static mut USB_DEVICE: Option<UsbDevice<hal::usb::UsbBus>> = None;
-static mut USB_BUS: Option<UsbBusAllocator<hal::usb::UsbBus>> = None;
-static mut USB_HID: Option<HIDClass<hal::usb::UsbBus>> = None;
 
 // configure to load program from flash, and run entirely from memory
 #[link_section = ".boot2"]
@@ -58,10 +54,6 @@ pub static BOOT2: [u8; 256] = rp2040_boot2::BOOT_LOADER_RAM_MEMCPY;
 
 #[entry]
 fn main() -> ! {
-    unsafe {
-        hal::sio::spinlock_reset();
-    }
-
     let mut pac = pac::Peripherals::take().unwrap();
 
     let mut watchdog = hal::Watchdog::new(pac.WATCHDOG);
@@ -112,31 +104,25 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    unsafe {
-        USB_BUS = Some(usb_bus);
-    }
+    Keyboard::set_usb_bus(usb_bus);
 
-    let bus_ref = unsafe { USB_BUS.as_ref().unwrap() };
+    let bus_ref = Keyboard::get_usb_bus_ref();
 
     let usb_hid = HIDClass::new(bus_ref, KeyboardReport::desc(), 60);
 
-    unsafe {
-        USB_HID = Some(usb_hid);
-    }
+    Keyboard::set_hid_device(usb_hid);
 
     // create a usb device
     let usb_dev = UsbDeviceBuilder::new(bus_ref, UsbVidPid(0x0000, 0x0000))
         .manufacturer("brxken128")
+        // should include current version within the product
         .product("PassPico")
         .serial_number("0x0001")
         .device_class(3)
         .build();
 
-    unsafe {
-        // setup the USB device and enable USB interrupts
-        USB_DEVICE = Some(usb_dev);
-        pac::NVIC::unmask(hal::pac::Interrupt::USBCTRL_IRQ);
-    }
+    Keyboard::set_usb_device(usb_dev);
+    Keyboard::enable_interrupts();
 
     let core = pac::CorePeripherals::take().unwrap();
     let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().to_Hz());
@@ -168,13 +154,4 @@ fn blue() -> RGB8 {
 
 fn off() -> RGB8 {
     (0, 0, 0).into()
-}
-
-// this is called whenever the USB device generates an interrupt request
-#[allow(non_snake_case)]
-#[interrupt]
-unsafe fn USBCTRL_IRQ() {
-    let usb_dev = USB_DEVICE.as_mut().unwrap();
-    let usb_hid = USB_HID.as_mut().unwrap();
-    usb_dev.poll(&mut [usb_hid]);
 }

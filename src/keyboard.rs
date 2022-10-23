@@ -1,10 +1,66 @@
+use adafruit_trinkey_qt2040::hal::usb::UsbBus;
+use adafruit_trinkey_qt2040::hal;
+use adafruit_trinkey_qt2040::hal::pac::interrupt;
 use cortex_m::delay::Delay;
-use usbd_hid::descriptor::KeyboardReport;
+use usb_device::{prelude::UsbDevice, class_prelude::UsbBusAllocator};
+use usbd_hid::{descriptor::KeyboardReport, hid_class::HIDClass};
 
 use crate::{
     codes::{char_to_keycode, get_modifier, KEY_ENTER, KEY_MOD_NONE, KEY_NONE},
-    USB_HID,
 };
+
+pub static mut USB_DEVICE: Option<UsbDevice<hal::usb::UsbBus>> = None;
+pub static mut USB_BUS: Option<UsbBusAllocator<hal::usb::UsbBus>> = None;
+pub static mut USB_HID: Option<HIDClass<hal::usb::UsbBus>> = None;
+
+pub struct Keyboard;
+
+impl Keyboard {
+    pub fn set_usb_device(dev: UsbDevice<'static, UsbBus>) {
+        unsafe {
+            USB_DEVICE = Some(dev);
+        }
+    }
+
+    pub fn set_usb_bus(bus: UsbBusAllocator<UsbBus>) {
+        unsafe {
+            USB_BUS = Some(bus);
+        }
+    }
+
+    pub fn set_hid_device(dev: HIDClass<'static, UsbBus>) {
+        unsafe {
+            USB_HID = Some(dev);
+        }
+    }
+
+    pub fn enable_interrupts() {
+        unsafe {
+            hal::pac::NVIC::unmask(hal::pac::Interrupt::USBCTRL_IRQ);
+        }
+    }
+
+    pub fn get_usb_bus_ref() -> &'static UsbBusAllocator<UsbBus> {
+        unsafe {
+            USB_BUS.as_ref().unwrap()
+        }
+    }
+
+    pub fn push_report(report: KeyboardReport) -> Result<usize, usb_device::UsbError> {
+        critical_section::with(|_| unsafe { USB_HID.as_mut().map(|hid| hid.push_input(&report)) })
+            .unwrap()
+    }
+}
+
+// this is called whenever the USB device generates an interrupt request
+#[allow(non_snake_case)]
+#[interrupt]
+unsafe fn USBCTRL_IRQ() {
+    let usb_dev = USB_DEVICE.as_mut().unwrap();
+    let usb_hid = USB_HID.as_mut().unwrap();
+    usb_dev.poll(&mut [usb_hid]);
+}
+
 
 const BLANK_KEYCODES: [u8; 6] = [KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE];
 
@@ -14,12 +70,6 @@ const BLANK_REPORT: KeyboardReport = KeyboardReport {
     leds: 0x00,
     keycodes: BLANK_KEYCODES,
 };
-
-/// This submits a new `KeyboardReport` to the USB stack
-fn keyboard_push(report: KeyboardReport) -> Result<usize, usb_device::UsbError> {
-    critical_section::with(|_| unsafe { USB_HID.as_mut().map(|hid| hid.push_input(&report)) })
-        .unwrap()
-}
 
 // keep track of the last char to reduce amount of blank reports sent
 // this lets us type strings faster
@@ -33,7 +83,7 @@ pub fn keyboard_print(text: &str, delay: &mut Delay) -> Result<(), usb_device::U
         // if they match, we need a blank report to say that it's another input of the char
         if let Some(lc) = last_char {
             if c == lc {
-                keyboard_push(BLANK_REPORT)?;
+                Keyboard::push_report(BLANK_REPORT)?;
 
                 delay.delay_ms(35);
             }
@@ -55,14 +105,14 @@ pub fn keyboard_print(text: &str, delay: &mut Delay) -> Result<(), usb_device::U
             keycodes: codes,
         };
 
-        keyboard_push(report)?;
+        Keyboard::push_report(report)?;
 
         last_char = Some(c);
 
         delay.delay_ms(35);
     }
 
-    keyboard_push(BLANK_REPORT)?;
+    Keyboard::push_report(BLANK_REPORT)?;
 
     Ok(())
 }
@@ -82,11 +132,11 @@ pub fn keyboard_println(text: &str, delay: &mut Delay) -> Result<(), usb_device:
         keycodes: codes,
     };
 
-    keyboard_push(report)?;
+    Keyboard::push_report(report)?;
 
     delay.delay_ms(35);
 
-    keyboard_push(BLANK_REPORT)?;
+    Keyboard::push_report(BLANK_REPORT)?;
 
     Ok(())
 }
