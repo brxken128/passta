@@ -10,6 +10,4 @@ Most Pico boards come with a button, and the RP2040 has HID support, so they're 
 
 I may branch the `KeyboardReport` and entering off into a separate crate at some point.
 
-I have strong plans to add `OneButton`-esque functionality to this project, so that users can enter up to 4 (or more!) passwords with one Pico and no extra hardware.
-
 I also have strong but unofficial plans to design a dedicated board for this - something with more security, and longer-lasting flash (EEPROM).
