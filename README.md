@@ -24,9 +24,11 @@ The ESP32-S3 offers: native flash encryption, secure user-configurable key stora
 
 ### Custom PCB
 
-I've also been designing a dedicated board for this. It contains an ESP32-S3 (although an RP2040 variant will be just as good). It's going to contain a dedicated HSM (hardware security module) for secure key storage/management and handle all of the cryptographic functionality, as well as dedicated EEPROM which will be entirely encrypted.
+I've also been designing a dedicated board for this. It contains an ESP32-S3 (although an RP2040 variant will be just as good). It's going to contain a dedicated HSM (hardware security module) for secure key storage/management and handle all of the cryptographic functionality, as well as dedicated high-quality EEPROM which will be entirely encrypted, and should be great at retaining data for extremely long periods of time.
 
-I also plan to add some tamper-proofing/resistance where possible to the final boards (both on the PCB design itself, and maybe even physically), and all files will be fully open-sourced once I'm both: fully confident in the design, and have manufactured a couple to validate them for myself. Development of `passta` will be done using off-the-shelf boards for the time being.
+The combination of both the ESP32-S3's security features, as well as those provided by a dedicated HSM, mean that they can work in tandem to provide an even stronger level of secuity. Both chips can also be tied to eachother, so an attacker can't desolder one and replace it in hopes of getting lucky - if tampering such as this is detected, the other chip will wipe itself of anything that could even be deemed remotely useful.
+
+I plan to add even more tamper-proofing/resistance where possible to the final boards (both in the PCB design itself, and maybe even physically), and all files will be fully open-sourced and availble in this repository once I'm both: fully confident in the design, and have manufactured a couple to validate them for myself. Development of `passta` will be done using off-the-shelf boards for the time being.
 
 I will also 3D print a case for this, and provide all files for that too!
 
