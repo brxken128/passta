@@ -1,6 +1,6 @@
 # passta
 
-`passta` (formery `passpico`) is a project that allows you to enter passwords (such as a LUKS encryption key or a password manager's master password) automatically, and it's written entirely in Rust!
+`passta` (formerly `passpico`) is a project that allows you to enter generic text, or passwords (such as a LUKS encryption key or a password manager's master password) automatically, and it's written entirely in Rust!
 
 The original board of choice was the Adafruit Trinkey QT2040 due to the extremely suitable form factor (it fits directly into a USB-A port) and has an RGB LED which can act as a status indicator. For a more secure experience, an ESP32-S3 based board should be chosen.
 
